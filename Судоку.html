@@ -1,0 +1,1178 @@
+
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Sudoku — Игра в судоку</title>
+
+<style>
+:root {
+    --bg: #f4f6fb;
+    --card: #ffffff;
+    --text: #202b3c;
+    --muted: #8993a4;
+    --primary: #536dfe;
+    --primary-light: #e9edff;
+    --selected: #cdd7ff;
+    --related: #f0f3ff;
+    --border: #d9deea;
+    --error: #ffdddd;
+    --error-text: #e53935;
+    --success: #16a36a;
+}
+
+* {
+    box-sizing: border-box;
+}
+
+body {
+    margin: 0;
+    min-height: 100vh;
+    padding: 25px 15px;
+    background: var(--bg);
+    color: var(--text);
+    font-family: Arial, Helvetica, sans-serif;
+}
+
+.container {
+    max-width: 520px;
+    margin: auto;
+}
+
+.header {
+    text-align: center;
+    margin-bottom: 22px;
+}
+
+.logo {
+    font-size: 34px;
+    font-weight: 800;
+    letter-spacing: 3px;
+    color: var(--primary);
+}
+
+.subtitle {
+    color: var(--muted);
+    font-size: 14px;
+    margin-top: 7px;
+}
+
+.card {
+    background: var(--card);
+    padding: 20px;
+    border-radius: 18px;
+    box-shadow: 0 8px 35px rgba(30, 45, 80, 0.07);
+}
+
+.top-panel {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    margin-bottom: 18px;
+}
+
+.difficulty {
+    border: 1px solid var(--border);
+    padding: 10px 12px;
+    border-radius: 9px;
+    background: white;
+    color: var(--text);
+    font-size: 14px;
+    outline: none;
+    cursor: pointer;
+}
+
+.timer {
+    font-size: 19px;
+    font-weight: bold;
+    font-variant-numeric: tabular-nums;
+    color: var(--primary);
+}
+
+/* ИГРОВОЕ ПОЛЕ */
+
+.board {
+    display: grid;
+    grid-template-columns: repeat(9, minmax(0, 1fr));
+    width: 100%;
+    aspect-ratio: 1;
+    border: 3px solid #34415b;
+    border-radius: 5px;
+    overflow: hidden;
+    user-select: none;
+}
+
+.cell {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    border-right: 1px solid var(--border);
+    border-bottom: 1px solid var(--border);
+    font-size: clamp(16px, 4.5vw, 25px);
+    font-weight: 500;
+    cursor: pointer;
+    background: white;
+    transition: background 0.12s;
+    min-width: 0;
+}
+
+.cell:nth-child(9n) {
+    border-right: none;
+}
+
+.cell:nth-child(n+73) {
+    border-bottom: none;
+}
+
+.cell:nth-child(3n):not(:nth-child(9n)) {
+    border-right: 2px solid #34415b;
+}
+
+.cell:nth-child(n+19):nth-child(-n+27),
+.cell:nth-child(n+46):nth-child(-n+54) {
+    border-bottom: 2px solid #34415b;
+}
+
+.cell.given {
+    font-weight: 800;
+    color: #28364d;
+}
+
+.cell.user-input {
+    color: var(--primary);
+    font-weight: 700;
+}
+
+.cell.related {
+    background: var(--related);
+}
+
+.cell.same-number {
+    background: #dce4ff;
+    color: var(--primary);
+    font-weight: 800;
+}
+
+.cell.selected {
+    background: var(--selected) !important;
+    box-shadow: inset 0 0 0 2px var(--primary);
+    z-index: 1;
+}
+
+.cell.error {
+    background: var(--error) !important;
+    color: var(--error-text) !important;
+}
+
+.cell.selected.error {
+    box-shadow: inset 0 0 0 2px var(--error-text);
+}
+
+/* ЦИФРОВАЯ КЛАВИАТУРА */
+
+.controls {
+    margin-top: 18px;
+    width: 100%;
+}
+
+.controls-title {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 10px;
+    font-size: 13px;
+    font-weight: bold;
+    gap: 5px;
+}
+
+.number-pad {
+    display: grid;
+    grid-template-columns: repeat(9, minmax(0, 1fr));
+    gap: 3px;
+    width: 100%;
+}
+
+.num-btn {
+    min-width: 0;
+    width: 100%;
+    height: 48px;
+    padding: 3px 0;
+    border: none;
+    border-radius: 6px;
+    background: var(--primary-light);
+    color: var(--primary);
+    font-size: 17px;
+    font-weight: bold;
+    cursor: pointer;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+    transition: 0.15s;
+}
+
+.num-btn:hover:not(:disabled) {
+    background: var(--primary);
+    color: white;
+}
+
+.num-btn .remaining {
+    display: block;
+    font-size: 7px;
+    line-height: 10px;
+    white-space: nowrap;
+    font-weight: normal;
+    opacity: 0.8;
+}
+
+.num-btn:disabled {
+    background: #e9edf2;
+    color: #aeb6c2;
+    opacity: 0.7;
+    cursor: not-allowed;
+}
+
+/* КНОПКИ УПРАВЛЕНИЯ */
+
+.action-buttons {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+    margin-top: 16px;
+}
+
+.action-btn {
+    padding: 13px;
+    border-radius: 10px;
+    border: 1px solid var(--border);
+    background: white;
+    color: var(--text);
+    font-weight: bold;
+    font-size: 14px;
+    cursor: pointer;
+}
+
+.action-btn:hover {
+    background: var(--primary-light);
+    border-color: var(--primary);
+}
+
+.action-btn.primary {
+    background: var(--primary);
+    color: white;
+    border-color: var(--primary);
+}
+
+.action-btn.primary:hover {
+    background: #4057df;
+}
+
+/* СТАТУС ИГРЫ */
+
+.status {
+    text-align: center;
+    margin-top: 16px;
+    min-height: 20px;
+    font-size: 13px;
+    color: var(--muted);
+}
+
+.status.success {
+    color: var(--success);
+    font-weight: bold;
+}
+
+.status.error-message {
+    color: var(--error-text);
+    font-weight: bold;
+}
+
+.footer {
+    text-align: center;
+    color: var(--muted);
+    font-size: 12px;
+    margin-top: 18px;
+}
+
+/* АДАПТАЦИЯ ПОД СМАРТФОНЫ */
+
+@media(max-width: 420px) {
+
+    body {
+        padding: 12px 6px;
+    }
+
+    .container {
+        width: 100%;
+    }
+
+    .card {
+        padding: 10px;
+        border-radius: 13px;
+    }
+
+    .header {
+        margin-bottom: 15px;
+    }
+
+    .logo {
+        font-size: 28px;
+    }
+
+    .number-pad {
+        gap: 2px;
+    }
+
+    .num-btn {
+        height: 42px;
+        font-size: 15px;
+        border-radius: 5px;
+    }
+
+    .num-btn .remaining {
+        font-size: 6px;
+        line-height: 9px;
+    }
+
+    .difficulty {
+        padding: 9px 6px;
+        font-size: 12px;
+    }
+
+    .timer {
+        font-size: 17px;
+    }
+
+    .cell {
+        font-size: clamp(15px, 5vw, 21px);
+    }
+}
+</style>
+</head>
+
+<body>
+
+<div class="container">
+
+    <div class="header">
+        <div class="logo">SUDOKU</div>
+        <div class="subtitle">Тренируй логику каждый день</div>
+    </div>
+
+    <div class="card">
+
+        <div class="top-panel">
+
+            <select class="difficulty" id="difficulty">
+                <option value="easy">Лёгкий</option>
+                <option value="medium" selected>Средний</option>
+                <option value="hard">Сложный</option>
+            </select>
+
+            <div class="timer" id="timer">00:00</div>
+
+        </div>
+
+        <div class="board" id="board"></div>
+
+        <div class="controls">
+
+            <div class="controls-title">
+                <span>Выбери цифру</span>
+                <span style="color:var(--muted);font-weight:normal">
+                    Осталось цифр
+                </span>
+            </div>
+
+            <div class="number-pad" id="numberPad"></div>
+
+        </div>
+
+        <div class="action-buttons">
+
+            <button class="action-btn" id="eraseBtn">
+                ✕ Стереть
+            </button>
+
+            <button class="action-btn" id="newGameBtn">
+                ↻ Новая игра
+            </button>
+
+        </div>
+
+        <div class="status" id="status">
+            Выбери ячейку и введи цифру
+        </div>
+
+    </div>
+
+    <div class="footer">
+        Sudoku © 2026 · Логика начинается здесь
+    </div>
+
+</div>
+
+<script>
+"use strict";
+
+// ==========================================
+// СОСТОЯНИЕ ИГРЫ
+// ==========================================
+
+const SIZE = 9;
+
+let solution = [];
+let puzzle = [];
+let board = [];
+
+let selectedCell = null;
+
+let elapsedSeconds = 0;
+let timerInterval = null;
+
+let gameStarted = false;
+let gameFinished = false;
+
+const boardElement = document.getElementById("board");
+const numberPad = document.getElementById("numberPad");
+const timerElement = document.getElementById("timer");
+const statusElement = document.getElementById("status");
+const difficultyElement = document.getElementById("difficulty");
+
+// ==========================================
+// ГЕНЕРАТОР СУДОКУ
+// ==========================================
+
+function createEmptyBoard() {
+
+    return Array.from(
+        { length: SIZE },
+        () => Array(SIZE).fill(0)
+    );
+}
+
+function shuffle(array) {
+
+    const result = [...array];
+
+    for (let i = result.length - 1; i > 0; i--) {
+
+        const j = Math.floor(Math.random() * (i + 1));
+
+        [result[i], result[j]] = [result[j], result[i]];
+    }
+
+    return result;
+}
+
+function getCandidates(grid, row, col) {
+
+    const used = new Set();
+
+    for (let i = 0; i < SIZE; i++) {
+
+        used.add(grid[row][i]);
+        used.add(grid[i][col]);
+    }
+
+    const startRow = Math.floor(row / 3) * 3;
+    const startCol = Math.floor(col / 3) * 3;
+
+    for (let r = startRow; r < startRow + 3; r++) {
+
+        for (let c = startCol; c < startCol + 3; c++) {
+
+            used.add(grid[r][c]);
+        }
+    }
+
+    return shuffle(
+        Array.from({ length: 9 }, (_, i) => i + 1)
+            .filter(n => !used.has(n))
+    );
+}
+
+function findBestEmptyCell(grid) {
+
+    let best = null;
+    let bestCandidates = null;
+
+    for (let r = 0; r < SIZE; r++) {
+
+        for (let c = 0; c < SIZE; c++) {
+
+            if (grid[r][c] !== 0) continue;
+
+            const candidates = getCandidates(grid, r, c);
+
+            if (candidates.length === 0) {
+
+                return {
+                    row: r,
+                    col: c,
+                    candidates: []
+                };
+            }
+
+            if (
+                bestCandidates === null ||
+                candidates.length < bestCandidates.length
+            ) {
+
+                best = { row: r, col: c };
+                bestCandidates = candidates;
+
+                if (candidates.length === 1) {
+
+                    return {
+                        ...best,
+                        candidates: bestCandidates
+                    };
+                }
+            }
+        }
+    }
+
+    if (!best) return null;
+
+    return {
+        ...best,
+        candidates: bestCandidates
+    };
+}
+
+function solveSudoku(grid) {
+
+    const cell = findBestEmptyCell(grid);
+
+    if (!cell) return true;
+
+    const { row, col, candidates } = cell;
+
+    for (const number of candidates) {
+
+        grid[row][col] = number;
+
+        if (solveSudoku(grid)) {
+            return true;
+        }
+
+        grid[row][col] = 0;
+    }
+
+    return false;
+}
+
+function generateSolution() {
+
+    const grid = createEmptyBoard();
+
+    solveSudoku(grid);
+
+    return grid;
+}
+
+// ==========================================
+// ПРОВЕРКА УНИКАЛЬНОСТИ
+// ==========================================
+
+function countSolutions(grid, limit = 2) {
+
+    const cell = findBestEmptyCell(grid);
+
+    if (!cell) return 1;
+
+    const { row, col, candidates } = cell;
+
+    let count = 0;
+
+    for (const number of candidates) {
+
+        grid[row][col] = number;
+
+        count += countSolutions(grid, limit);
+
+        grid[row][col] = 0;
+
+        if (count >= limit) {
+            return count;
+        }
+    }
+
+    return count;
+}
+
+// ==========================================
+// СОЗДАНИЕ ПАЗЛА
+// ==========================================
+
+function removeNumbers(grid, holes) {
+
+    const positions = shuffle(
+        Array.from({ length: 81 }, (_, i) => i)
+    );
+
+    let removed = 0;
+
+    for (const position of positions) {
+
+        if (removed >= holes) break;
+
+        const row = Math.floor(position / 9);
+        const col = position % 9;
+
+        const backup = grid[row][col];
+
+        grid[row][col] = 0;
+
+        const testGrid = grid.map(r => [...r]);
+
+        if (countSolutions(testGrid) !== 1) {
+
+            grid[row][col] = backup;
+
+        } else {
+
+            removed++;
+        }
+    }
+
+    return grid;
+}
+
+// ==========================================
+// НОВАЯ ИГРА
+// ==========================================
+
+function newGame() {
+
+    stopTimer();
+
+    gameStarted = false;
+    gameFinished = false;
+
+    elapsedSeconds = 0;
+    selectedCell = null;
+
+    timerElement.textContent = "00:00";
+
+    const difficulty = difficultyElement.value;
+
+    let holes;
+
+    switch (difficulty) {
+
+        case "easy":
+            holes = 35;
+            break;
+
+        case "medium":
+            holes = 45;
+            break;
+
+        case "hard":
+            holes = 53;
+            break;
+
+        default:
+            holes = 45;
+    }
+
+    solution = generateSolution();
+
+    puzzle = solution.map(row => [...row]);
+
+    removeNumbers(puzzle, holes);
+
+    board = puzzle.map(row => [...row]);
+
+    statusElement.textContent =
+        "Выбери ячейку и введи цифру";
+
+    statusElement.className = "status";
+
+    renderBoard();
+    renderNumberPad();
+}
+
+// ==========================================
+// ОТОБРАЖЕНИЕ ПОЛЯ
+// ==========================================
+
+function renderBoard() {
+
+    boardElement.innerHTML = "";
+
+    for (let row = 0; row < SIZE; row++) {
+
+        for (let col = 0; col < SIZE; col++) {
+
+            const cell = document.createElement("div");
+
+            cell.className = "cell";
+
+            cell.dataset.row = row;
+            cell.dataset.col = col;
+
+            const value = board[row][col];
+
+            if (value !== 0) {
+                cell.textContent = value;
+            }
+
+            if (puzzle[row][col] !== 0) {
+
+                cell.classList.add("given");
+
+            } else if (value !== 0) {
+
+                cell.classList.add("user-input");
+            }
+
+            cell.addEventListener("click", () => {
+                selectCell(row, col);
+            });
+
+            boardElement.appendChild(cell);
+        }
+    }
+
+    updateHighlights();
+}
+
+// ==========================================
+// ВЫБОР ЯЧЕЙКИ
+// ==========================================
+
+function selectCell(row, col) {
+
+    if (gameFinished) return;
+
+    selectedCell = { row, col };
+
+    updateHighlights();
+
+    if (!gameStarted) {
+        startTimer();
+    }
+}
+
+// ==========================================
+// ПОДСВЕТКА
+// ==========================================
+
+function updateHighlights() {
+
+    const cells = boardElement.querySelectorAll(".cell");
+
+    cells.forEach(cell => {
+
+        const row = Number(cell.dataset.row);
+        const col = Number(cell.dataset.col);
+
+        cell.classList.remove(
+            "selected",
+            "related",
+            "same-number",
+            "error"
+        );
+
+        if (selectedCell) {
+
+            const sr = selectedCell.row;
+            const sc = selectedCell.col;
+
+            if (
+                row === sr ||
+                col === sc ||
+                (
+                    Math.floor(row / 3) === Math.floor(sr / 3) &&
+                    Math.floor(col / 3) === Math.floor(sc / 3)
+                )
+            ) {
+
+                cell.classList.add("related");
+            }
+
+            if (row === sr && col === sc) {
+
+                cell.classList.add("selected");
+            }
+
+            const selectedValue = board[sr][sc];
+
+            if (
+                selectedValue !== 0 &&
+                board[row][col] === selectedValue
+            ) {
+
+                cell.classList.add("same-number");
+            }
+        }
+    });
+
+    updateErrors();
+}
+
+// ==========================================
+// ПРОВЕРКА ОШИБОК
+// ==========================================
+
+function updateErrors() {
+
+    const cells = boardElement.querySelectorAll(".cell");
+
+    for (let row = 0; row < SIZE; row++) {
+
+        for (let col = 0; col < SIZE; col++) {
+
+            const value = board[row][col];
+
+            if (value === 0) continue;
+
+            let duplicate = false;
+
+            const incorrect = value !== solution[row][col];
+
+            // Проверка строки и столбца.
+
+            for (let i = 0; i < SIZE; i++) {
+
+                if (
+                    i !== col &&
+                    board[row][i] === value
+                ) {
+
+                    duplicate = true;
+                }
+
+                if (
+                    i !== row &&
+                    board[i][col] === value
+                ) {
+
+                    duplicate = true;
+                }
+            }
+
+            // Проверка блока 3x3.
+
+            const startRow = Math.floor(row / 3) * 3;
+            const startCol = Math.floor(col / 3) * 3;
+
+            for (let r = startRow; r < startRow + 3; r++) {
+
+                for (let c = startCol; c < startCol + 3; c++) {
+
+                    if (
+                        (r !== row || c !== col) &&
+                        board[r][c] === value
+                    ) {
+
+                        duplicate = true;
+                    }
+                }
+            }
+
+            // Красная подсветка неправильных цифр.
+
+            if (incorrect || duplicate) {
+
+                cells[row * 9 + col].classList.add("error");
+            }
+        }
+    }
+}
+
+// ==========================================
+// СЧЁТЧИК ОСТАВШИХСЯ ЦИФР
+// ==========================================
+
+function getRemainingCount(number) {
+
+    let count = 0;
+
+    for (let row = 0; row < SIZE; row++) {
+
+        for (let col = 0; col < SIZE; col++) {
+
+            if (
+                board[row][col] === number &&
+                solution[row][col] === number
+            ) {
+
+                count++;
+            }
+        }
+    }
+
+    return 9 - count;
+}
+
+// ==========================================
+// ЦИФРОВАЯ КЛАВИАТУРА
+// ==========================================
+
+function renderNumberPad() {
+
+    numberPad.innerHTML = "";
+
+    for (let number = 1; number <= 9; number++) {
+
+        const remaining = getRemainingCount(number);
+
+        const button = document.createElement("button");
+
+        button.className = "num-btn";
+
+        button.innerHTML = `
+            ${number}
+            <span class="remaining">
+                ${remaining === 0 ? "Готово ✓" : "Ост: " + remaining}
+            </span>
+        `;
+
+        button.disabled = remaining === 0;
+
+        button.addEventListener("click", () => {
+
+            if (remaining > 0) {
+                enterNumber(number);
+            }
+        });
+
+        numberPad.appendChild(button);
+    }
+}
+
+// ==========================================
+// ВВОД ЦИФРЫ
+// ==========================================
+
+function enterNumber(number) {
+
+    if (!selectedCell || gameFinished) return;
+
+    const { row, col } = selectedCell;
+
+    if (puzzle[row][col] !== 0) {
+
+        statusElement.textContent =
+            "Эту ячейку нельзя изменить";
+
+        statusElement.className = "status";
+
+        return;
+    }
+
+    if (!gameStarted) {
+        startTimer();
+    }
+
+    board[row][col] = number;
+
+    renderBoard();
+    renderNumberPad();
+
+    if (number !== solution[row][col]) {
+
+        statusElement.textContent =
+            "✕ Неправильная цифра! Попробуй ещё раз.";
+
+        statusElement.className = "status error-message";
+
+    } else {
+
+        statusElement.textContent =
+            "✓ Правильная цифра!";
+
+        statusElement.className = "status";
+    }
+
+    checkWin();
+}
+
+// ==========================================
+// СТИРАНИЕ
+// ==========================================
+
+function eraseNumber() {
+
+    if (!selectedCell || gameFinished) return;
+
+    const { row, col } = selectedCell;
+
+    if (puzzle[row][col] !== 0) {
+
+        statusElement.textContent =
+            "Исходную цифру нельзя стереть";
+
+        return;
+    }
+
+    board[row][col] = 0;
+
+    renderBoard();
+    renderNumberPad();
+
+    statusElement.textContent = "Ячейка очищена";
+    statusElement.className = "status";
+}
+
+// ==========================================
+// ТАЙМЕР
+// ==========================================
+
+function startTimer() {
+
+    if (gameStarted || gameFinished) return;
+
+    gameStarted = true;
+
+    timerInterval = setInterval(() => {
+
+        elapsedSeconds++;
+
+        const minutes = Math.floor(elapsedSeconds / 60);
+        const seconds = elapsedSeconds % 60;
+
+        timerElement.textContent =
+            String(minutes).padStart(2, "0") +
+            ":" +
+            String(seconds).padStart(2, "0");
+
+    }, 1000);
+}
+
+function stopTimer() {
+
+    if (timerInterval !== null) {
+
+        clearInterval(timerInterval);
+
+        timerInterval = null;
+    }
+
+    gameStarted = false;
+}
+
+// ==========================================
+// ПРОВЕРКА ПОБЕДЫ
+// ==========================================
+
+function checkWin() {
+
+    for (let row = 0; row < SIZE; row++) {
+
+        for (let col = 0; col < SIZE; col++) {
+
+            if (
+                board[row][col] !== solution[row][col]
+            ) {
+
+                return false;
+            }
+        }
+    }
+
+    gameFinished = true;
+
+    stopTimer();
+
+    renderNumberPad();
+
+    statusElement.textContent =
+        "🎉 ПОЗДРАВЛЯЕМ! СУДОКУ РЕШЕНО!";
+
+    statusElement.className = "status success";
+
+    return true;
+}
+
+// ==========================================
+// КЛАВИАТУРА КОМПЬЮТЕРА
+// ==========================================
+
+document.addEventListener("keydown", event => {
+
+    if (gameFinished) return;
+
+    if (event.target === difficultyElement) return;
+
+    if (/^[1-9]$/.test(event.key)) {
+
+        enterNumber(Number(event.key));
+
+        return;
+    }
+
+    if (
+        event.key === "Backspace" ||
+        event.key === "Delete" ||
+        event.key === "0"
+    ) {
+
+        eraseNumber();
+
+        return;
+    }
+
+    if (!selectedCell) return;
+
+    let { row, col } = selectedCell;
+
+    switch (event.key) {
+
+        case "ArrowUp":
+            row = Math.max(0, row - 1);
+            break;
+
+        case "ArrowDown":
+            row = Math.min(8, row + 1);
+            break;
+
+        case "ArrowLeft":
+            col = Math.max(0, col - 1);
+            break;
+
+        case "ArrowRight":
+            col = Math.min(8, col + 1);
+            break;
+
+        default:
+            return;
+    }
+
+    event.preventDefault();
+
+    selectCell(row, col);
+});
+
+// ==========================================
+// КНОПКИ УПРАВЛЕНИЯ
+// ==========================================
+
+document.getElementById("newGameBtn")
+    .addEventListener("click", newGame);
+
+document.getElementById("eraseBtn")
+    .addEventListener("click", eraseNumber);
+
+difficultyElement.addEventListener(
+    "change",
+    newGame
+);
+
+// ==========================================
+// ЗАПУСК ИГРЫ
+// ==========================================
+
+newGame();
+
+</script>
+
+</body>
+</html>
